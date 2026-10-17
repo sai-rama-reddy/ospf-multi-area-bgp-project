@@ -1,0 +1,243 @@
+OSPF MULTI-AREA + eBGP PROJECT — SAMPLE CONFIGURATIONS
+======================================================
+
+Assumptions
+-----------
+- Cisco IOS-style syntax.
+- OSPF process 1.
+- /24 subnet mask on every network shown.
+- Router/interface names match the topology image. Adjust if your GNS3 image names interfaces differently.
+- R1-R7 are in AS 100, R8 is in AS 200, and R9 is in AS 300.
+- Area 1 is Stub; Area 2 is NSSA.
+- Example PC1 address: 192.168.15.10/24, default gateway 192.168.15.5.
+
+------------------------------------------------------
+R1 — OSPF Area 0 + eBGP to AS 200
+------------------------------------------------------
+hostname R1
+!
+interface FastEthernet0/0
+ ip address 192.168.18.1 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet1/0
+ ip address 192.168.21.1 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet2/0
+ ip address 192.168.31.1 255.255.255.0
+ no shutdown
+!
+router ospf 1
+ router-id 1.1.1.1
+ network 192.168.21.0 0.0.0.255 area 0
+ network 192.168.31.0 0.0.0.255 area 0
+!
+router bgp 100
+ bgp log-neighbor-changes
+ neighbor 192.168.18.8 remote-as 200
+ network 192.168.18.0 mask 255.255.255.0
+ redistribute ospf 1
+!
+! Optional only if you want BGP-learned external routes to enter OSPF:
+router ospf 1
+ redistribute bgp 100 subnets
+!
+
+------------------------------------------------------
+R2 — Area 0 / Area 1 ABR (Stub)
+------------------------------------------------------
+hostname R2
+!
+interface GigabitEthernet2/0
+ ip address 192.168.21.2 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet1/0
+ ip address 192.168.42.2 255.255.255.0
+ no shutdown
+!
+router ospf 1
+ router-id 2.2.2.2
+ network 192.168.21.0 0.0.0.255 area 0
+ network 192.168.42.0 0.0.0.255 area 1
+ area 1 stub
+!
+
+------------------------------------------------------
+R3 — Area 0 / Area 2 ABR (NSSA)
+------------------------------------------------------
+hostname R3
+!
+interface GigabitEthernet1/0
+ ip address 192.168.31.3 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet2/0
+ ip address 192.168.63.3 255.255.255.0
+ no shutdown
+!
+router ospf 1
+ router-id 3.3.3.3
+ network 192.168.31.0 0.0.0.255 area 0
+ network 192.168.63.0 0.0.0.255 area 2
+ area 2 nssa
+!
+
+------------------------------------------------------
+R4 — Area 1 Stub
+------------------------------------------------------
+hostname R4
+!
+interface GigabitEthernet2/0
+ ip address 192.168.42.4 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet1/0
+ ip address 192.168.54.4 255.255.255.0
+ no shutdown
+!
+router ospf 1
+ router-id 4.4.4.4
+ network 192.168.42.0 0.0.0.255 area 1
+ network 192.168.54.0 0.0.0.255 area 1
+ area 1 stub
+!
+
+------------------------------------------------------
+R5 — Area 1 Stub + PC1 LAN
+------------------------------------------------------
+hostname R5
+!
+interface GigabitEthernet2/0
+ ip address 192.168.54.5 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet1/0
+ ip address 192.168.15.5 255.255.255.0
+ no shutdown
+!
+router ospf 1
+ router-id 5.5.5.5
+ network 192.168.54.0 0.0.0.255 area 1
+ network 192.168.15.0 0.0.0.255 area 1
+ area 1 stub
+!
+
+------------------------------------------------------
+R6 — Area 2 NSSA
+------------------------------------------------------
+hostname R6
+!
+interface GigabitEthernet1/0
+ ip address 192.168.63.6 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet2/0
+ ip address 192.168.76.6 255.255.255.0
+ no shutdown
+!
+router ospf 1
+ router-id 6.6.6.6
+ network 192.168.63.0 0.0.0.255 area 2
+ network 192.168.76.0 0.0.0.255 area 2
+ area 2 nssa
+!
+
+------------------------------------------------------
+R7 — Area 2 NSSA + eBGP to AS 300
+------------------------------------------------------
+hostname R7
+!
+interface GigabitEthernet1/0
+ ip address 192.168.76.7 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet2/0
+ ip address 192.168.79.7 255.255.255.0
+ no shutdown
+!
+router ospf 1
+ router-id 7.7.7.7
+ network 192.168.76.0 0.0.0.255 area 2
+ area 2 nssa
+ redistribute bgp 100 subnets
+!
+router bgp 100
+ bgp log-neighbor-changes
+ neighbor 192.168.79.9 remote-as 300
+ network 192.168.79.0 mask 255.255.255.0
+ redistribute ospf 1
+!
+
+------------------------------------------------------
+R8 — AS 200 eBGP peer
+------------------------------------------------------
+hostname R8
+!
+interface FastEthernet0/0
+ ip address 192.168.18.8 255.255.255.0
+ no shutdown
+!
+router bgp 200
+ bgp log-neighbor-changes
+ neighbor 192.168.18.1 remote-as 100
+ network 192.168.18.0 mask 255.255.255.0
+!
+
+------------------------------------------------------
+R9 — AS 300 eBGP peer
+------------------------------------------------------
+hostname R9
+!
+interface GigabitEthernet1/0
+ ip address 192.168.79.9 255.255.255.0
+ no shutdown
+!
+router bgp 300
+ bgp log-neighbor-changes
+ neighbor 192.168.79.7 remote-as 100
+ network 192.168.79.0 mask 255.255.255.0
+!
+
+======================================================
+VERIFICATION / TROUBLESHOOTING COMMANDS
+======================================================
+
+Run on each router:
+show ip interface brief
+show ip route
+show ip protocols
+show running-config
+
+OSPF checks (R1-R7):
+show ip ospf
+show ip ospf neighbor
+show ip route ospf
+show ip ospf database
+
+BGP checks (R1, R7, R8, R9):
+show ip bgp summary
+show ip bgp
+show ip route bgp
+
+Connectivity checks:
+ping 192.168.21.2
+ping 192.168.31.3
+ping 192.168.18.8
+ping 192.168.79.9
+traceroute 192.168.79.9
+
+PC1 VPCS example:
+ip 192.168.15.10/24 192.168.15.5
+show ip
+ping 192.168.15.5
+
+COMMON ISSUES
+-------------
+1. If an interface name is rejected, use `show ip interface brief` to find the actual interface name.
+2. If a BGP neighbor stays Idle/Active, first check IP addressing, interface status, direct ping, and the `remote-as` number.
+3. If OSPF neighbors do not form, verify area IDs, masks, timers, network statements, and the Stub/NSSA configuration on all routers in that area.
+4. A `network` statement in BGP advertises a prefix only when that exact prefix exists in the local routing table (with matching mask).
+5. Redistribution syntax/features vary by IOS image. Check `show running-config` and the router image's supported commands.
+6. This is a lab template. In a production network, use route maps/prefix lists and carefully control redistribution.
